@@ -1,7 +1,7 @@
 /* =============================================================
    EDITOR — renderização do canvas (foto + moldura)
    ============================================================= */
-(function(window){
+(function(window) {
   'use strict';
 
   const SIZE = 1080;
@@ -9,18 +9,14 @@
   const Editor = {
     canvas: null,
     ctx: null,
-
-    // Estado
     image: null,
     imageLoaded: false,
     zoom: 1,
     panX: 0,
     panY: 0,
-
-    // Refs de UI
     _ui: {},
 
-    init() {
+    init: function() {
       this.canvas = document.getElementById('canvas');
       this.ctx = this.canvas.getContext('2d');
       this._ui = {
@@ -33,50 +29,49 @@
         aiBtn: document.getElementById('aiBtn'),
         downloadBtn: document.getElementById('downloadBtn')
       };
-
       this.render();
     },
 
-    /** Define nova imagem (substitui a anterior e reseta zoom/pan) */
-    setImage(img, { resetView = true, autoRender = true } = {}) {
+    setImage: function(img, opts) {
+      opts = opts || {};
+      const resetView = opts.resetView !== false;
+      const autoRender = opts.autoRender !== false;
+
       this.image = img;
       this.imageLoaded = true;
       if (resetView) this.resetView();
       if (autoRender) this.render();
     },
 
-    clearImage() {
+    clearImage: function() {
       this.image = null;
       this.imageLoaded = false;
       this.resetView();
       this.render();
     },
 
-    resetView() {
+    resetView: function() {
       this.zoom = 1;
       this.panX = 0;
       this.panY = 0;
-      const { zoomSlider, zoomLabel } = this._ui;
-      if (zoomSlider) zoomSlider.value = 1;
-      if (zoomLabel) zoomLabel.textContent = '100%';
+      if (this._ui.zoomSlider) this._ui.zoomSlider.value = 1;
+      if (this._ui.zoomLabel) this._ui.zoomLabel.textContent = '100%';
     },
 
-    setZoom(z) {
+    setZoom: function(z) {
       this.zoom = Math.min(Math.max(z, 0.5), 4);
-      const { zoomSlider, zoomLabel } = this._ui;
-      if (zoomSlider) zoomSlider.value = this.zoom;
-      if (zoomLabel) zoomLabel.textContent = Math.round(this.zoom * 100) + '%';
+      if (this._ui.zoomSlider) this._ui.zoomSlider.value = this.zoom;
+      if (this._ui.zoomLabel) this._ui.zoomLabel.textContent = Math.round(this.zoom * 100) + '%';
       this.render();
     },
 
-    hasImage() { return this.imageLoaded && this.image; },
+    hasImage: function() {
+      return this.imageLoaded && !!this.image;
+    },
 
-    /** Desenha tudo */
-    render() {
+    render: function() {
       const ctx = this.ctx;
       ctx.clearRect(0, 0, SIZE, SIZE);
-
-      // Fundo branco
       ctx.fillStyle = '#FFFFFF';
       ctx.fillRect(0, 0, SIZE, SIZE);
 
@@ -87,20 +82,23 @@
         this._updateUI(false);
       }
 
-      // Moldura por cima
       if (window.Frames) window.Frames.drawOn(ctx, SIZE);
 
-      // Estado do botão salvar
-      const { downloadBtn } = this._ui;
-      if (downloadBtn) downloadBtn.disabled = !this.imageLoaded;
+      if (this._ui.downloadBtn) this._ui.downloadBtn.disabled = !this.imageLoaded;
     },
 
-    _drawPhoto(ctx) {
+    _drawPhoto: function(ctx) {
       const img = this.image;
       const aspect = img.width / img.height;
       let dw, dh;
-      if (aspect > 1) { dh = SIZE; dw = SIZE * aspect; }
-      else            { dw = SIZE; dh = SIZE / aspect; }
+
+      if (aspect > 1) {
+        dh = SIZE;
+        dw = SIZE * aspect;
+      } else {
+        dw = SIZE;
+        dh = SIZE / aspect;
+      }
 
       const fw = dw * this.zoom;
       const fh = dh * this.zoom;
@@ -115,24 +113,24 @@
       ctx.restore();
     },
 
-    _updateUI(hasImage) {
-      const { placeholder, hint, zoomBar, resetBtn, aiBtn } = this._ui;
-      if (placeholder) placeholder.style.display = hasImage ? 'none' : 'flex';
-      if (hint)        hint.classList.toggle('show', hasImage);
-      if (zoomBar)     zoomBar.style.display = hasImage ? 'flex' : 'none';
-      if (resetBtn)    resetBtn.style.display = hasImage ? 'flex' : 'none';
-      if (aiBtn)       aiBtn.disabled = !hasImage;
+    _updateUI: function(hasImage) {
+      const ui = this._ui;
+      if (ui.placeholder) ui.placeholder.style.display = hasImage ? 'none' : 'flex';
+      if (ui.hint) ui.hint.classList.toggle('show', hasImage);
+      if (ui.zoomBar) ui.zoomBar.style.display = hasImage ? 'flex' : 'none';
+      if (ui.resetBtn) ui.resetBtn.style.display = hasImage ? 'flex' : 'none';
+      if (ui.aiBtn) ui.aiBtn.disabled = !hasImage;
     },
 
-    /** Exporta o canvas como Blob PNG */
-    toBlob() {
-      return new Promise(resolve => {
-        this.canvas.toBlob(b => resolve(b), 'image/png', 1.0);
+    toBlob: function() {
+      const self = this;
+      return new Promise(function(resolve) {
+        self.canvas.toBlob(function(b) { resolve(b); }, 'image/png', 1.0);
       });
     },
 
-    getCanvas() { return this.canvas; },
-    getSize()   { return SIZE; }
+    getCanvas: function() { return this.canvas; },
+    getSize: function() { return SIZE; }
   };
 
   window.Editor = Editor;
