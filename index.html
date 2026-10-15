@@ -4,10 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#0A0C10">
-
-<!-- ============================================================
-     PWA META TAGS (versões atualizadas, sem deprecation warnings)
-     ============================================================ -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -15,10 +11,6 @@
 <meta name="application-name" content="Molduras IA">
 <meta name="format-detection" content="telephone=no">
 <meta name="msapplication-TileColor" content="#006805">
-
-<!-- ============================================================
-     SEO / Open Graph
-     ============================================================ -->
 <meta name="description" content="Criador de molduras com IA — grátis, open source, roda 100% no navegador">
 <meta name="author" content="Criador de Molduras IA">
 <meta name="keywords" content="moldura, foto, ia, molduras, editor de foto, retrato profissional">
@@ -32,34 +24,21 @@
 
 <title>Criador de Molduras IA</title>
 
-<!-- ============================================================
-     FAVICON SVG INLINE (evita 404 de /favicon.ico)
-     ============================================================ -->
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='5' fill='%23006805'/%3E%3Cpath d='M6 6h4v4H6zM14 6h4v4h-4zM6 14h4v4H6zM14 14h4v4h-4z' fill='%2371BF50'/%3E%3C/svg%3E">
 <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='5' fill='%23006805'/%3E%3Cpath d='M6 6h4v4H6zM14 6h4v4h-4zM6 14h4v4H6zM14 14h4v4h-4z' fill='%2371BF50'/%3E%3C/svg%3E">
 
-<!-- PWA Manifest (com icons:[] para evitar 404) -->
 <link rel="manifest" href="manifest.json">
 
-<!-- ============================================================
-     PRE-CONNECT (acelera carregamento de CDNs)
-     ============================================================ -->
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link rel="preconnect" href="https://storage.googleapis.com" crossorigin>
 <link rel="preconnect" href="https://image.pollinations.ai" crossorigin>
 
-<!-- ============================================================
-     ESTILOS
-     ============================================================ -->
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 
 <div class="app">
 
-  <!-- ==========================================================
-       HEADER
-       ========================================================== -->
   <header class="header">
     <div class="brand">
       <div class="brand-logo" aria-hidden="true">
@@ -78,14 +57,9 @@
     </div>
   </header>
 
-  <!-- ==========================================================
-       STAGE (canvas + overlays)
-       ========================================================== -->
   <div class="stage" id="stage" role="region" aria-label="Área de edição da foto">
-
     <canvas id="canvas" width="1080" height="1080" aria-label="Pré-visualização da moldura"></canvas>
 
-    <!-- Placeholder (quando não há imagem) -->
     <div class="placeholder" id="placeholder" aria-hidden="true">
       <svg viewBox="0 0 24 24">
         <rect x="3" y="3" width="18" height="18" rx="3"/>
@@ -96,7 +70,6 @@
       <div class="p-sub">Galeria, câmera ou arraste uma imagem</div>
     </div>
 
-    <!-- Loader (durante processamento de IA) -->
     <div class="loader" id="loader" role="status" aria-live="polite">
       <div class="spinner" aria-hidden="true"></div>
       <div class="loader-text" id="loaderText">Processando...</div>
@@ -104,19 +77,12 @@
         <div class="loader-progress-bar" id="loaderBar"></div>
       </div>
     </div>
-
   </div>
 
-  <!-- ==========================================================
-       HINT (dica de gestos)
-       ========================================================== -->
   <div class="hint" id="hint" role="note">
     👆 Arraste • 🤏 Pinça para zoom
   </div>
 
-  <!-- ==========================================================
-       ZOOM SLIDER
-       ========================================================== -->
   <div class="zoom-bar" id="zoomBar" style="display:none">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
          stroke="currentColor" stroke-width="2" aria-hidden="true"
@@ -135,21 +101,25 @@
     <span class="z-label" id="zoomLabel" aria-live="polite">100%</span>
   </div>
 
-  <!-- ==========================================================
-       SELETOR DE MOLDURAS
-       ========================================================== -->
+  <!-- ============ SELETOR DE MOLDURAS (com botão refresh) ============ -->
   <div class="frames-label">
     <span>Molduras</span>
-    <span style="color:var(--text-sub);font-size:10px" id="frameCount">0</span>
+    <span style="display:flex;align-items:center;gap:8px">
+      <span style="color:var(--text-sub);font-size:10px" id="frameCount">detectando...</span>
+      <button id="refreshFramesBtn" title="Buscar novas molduras"
+              style="background:none;border:none;color:var(--text-sub);cursor:pointer;padding:2px;display:grid;place-items:center"
+              aria-label="Buscar novas molduras">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M23 4v6h-6M1 20v-6h6"/>
+          <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+        </svg>
+      </button>
+    </span>
   </div>
   <div class="frames" id="frames" role="listbox" aria-label="Escolha uma moldura"></div>
 
-  <!-- ==========================================================
-       CONTROLES
-       ========================================================== -->
   <div class="controls">
 
-    <!-- Linha 1: Galeria + Câmera -->
     <div class="row">
       <button class="btn btn-upload" id="uploadBtn" aria-label="Escolher foto da galeria">
         <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -169,7 +139,6 @@
       </button>
     </div>
 
-    <!-- Linha 2: Gerar com IA (destaque) -->
     <button class="btn btn-ai" id="generateBtn" disabled
             aria-label="Gerar versão profissional com IA">
       <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -178,7 +147,6 @@
       <span>✨ Gerar versão IA</span>
     </button>
 
-    <!-- Linha 3: Recortar fundo -->
     <button class="btn btn-ai" id="aiBtn" disabled
             style="background:linear-gradient(135deg,#0EA5E9,#6366F1)"
             aria-label="Recortar fundo com IA">
@@ -188,7 +156,6 @@
       <span>✂️ Recortar fundo</span>
     </button>
 
-    <!-- Linha 4: Salvar/Compartilhar -->
     <button class="btn btn-primary" id="downloadBtn" disabled
             aria-label="Salvar ou compartilhar imagem final">
       <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -198,7 +165,6 @@
       <span>Salvar / Compartilhar</span>
     </button>
 
-    <!-- Linha 5: Remover foto -->
     <button class="btn btn-ghost" id="resetBtn" style="display:none"
             aria-label="Remover foto atual">
       <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -210,29 +176,9 @@
   </div>
 </div>
 
-<!-- ============================================================
-     TOAST (notificações)
-     ============================================================ -->
 <div class="toast" id="toast" role="alert" aria-live="assertive"></div>
 
-<!-- ============================================================
-     MÓDULO DE IA (carregado como ES module)
-     Importa MediaPipe Tasks Vision do CDN oficial
-     ============================================================ -->
 <script type="module" src="js/ai.js"></script>
-
-<!-- ============================================================
-     MÓDULOS DA APLICAÇÃO (ordem importa!)
-     1. utils.js      → helpers globais
-     2. toast.js      → notificações
-     3. frames.js     → gerenciamento das molduras
-     4. editor.js     → renderização do canvas
-     5. gestures.js   → toque/mouse/zoom
-     6. camera.js     → captura ao vivo
-     7. share.js      → salvar/compartilhar
-     8. generator.js  → IA de geração de imagem
-     9. app.js        → orquestrador (DEVE SER O ÚLTIMO)
-     ============================================================ -->
 <script src="js/utils.js"></script>
 <script src="js/toast.js"></script>
 <script src="js/frames.js"></script>
