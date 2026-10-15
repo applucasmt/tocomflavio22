@@ -8,14 +8,12 @@
     init: function() {
       Editor.init();
       Frames.init(function() { Editor.render(); });
-      Frames.load();
       Gestures.init(Editor);
       Toast.init();
       Utils.registerSW();
 
       this._bindButtons();
 
-      // Pré-carrega detector facial
       if (window.AI && window.AI.initFaceDetector) {
         setTimeout(function() {
           window.AI.initFaceDetector().catch(function() {});
@@ -32,7 +30,7 @@
       const generateBtn = document.getElementById('generateBtn');
       const downloadBtn = document.getElementById('downloadBtn');
       const resetBtn = document.getElementById('resetBtn');
-      const aiBtnRef = aiBtn;
+      const refreshBtn = document.getElementById('refreshFramesBtn');
 
       if (fileInput) {
         fileInput.addEventListener('change', function() {
@@ -49,7 +47,6 @@
         });
       }
 
-      // Recortar fundo (MediaPipe)
       if (aiBtn) {
         aiBtn.addEventListener('click', function() {
           if (window.AI && window.AI.runFull) {
@@ -58,7 +55,6 @@
         });
       }
 
-      // Gerar com IA (Pollinations)
       if (generateBtn) {
         generateBtn.addEventListener('click', function() {
           if (!window.Generator) {
@@ -86,14 +82,34 @@
         });
       }
 
-      // Observa mudança no botão AI para habilitar Gerar
-      if (aiBtnRef) {
+      // Botão de refresh das molduras
+      if (refreshBtn) {
+        refreshBtn.addEventListener('click', function() {
+          refreshBtn.style.transition = 'transform 0.6s';
+          refreshBtn.style.transform = 'rotate(360deg)';
+
+          setTimeout(function() {
+            refreshBtn.style.transform = '';
+            refreshBtn.style.transition = '';
+          }, 600);
+
+          if (window.Toast) Toast.info('🔄 Buscando novas molduras...');
+
+          Frames.refresh().then(function() {
+            if (window.Toast) {
+              Toast.success('✨ ' + Frames.urls.length + ' molduras encontradas!');
+            }
+          });
+        });
+      }
+
+      if (aiBtn) {
         const observer = new MutationObserver(function() {
           const hasImage = Editor.hasImage();
           const genBtn = document.getElementById('generateBtn');
           if (genBtn) genBtn.disabled = !hasImage;
         });
-        observer.observe(aiBtnRef, {
+        observer.observe(aiBtn, {
           attributes: true,
           attributeFilter: ['disabled']
         });
