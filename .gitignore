@@ -25,3 +25,6 @@ build/
 # Cache IA
 .cache/
 *.onnx.tmp
+.env
+.env.local
+.env*.local
