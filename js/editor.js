@@ -1,5 +1,6 @@
 /* =============================================================
-   EDITOR — renderização do canvas (foto + moldura)
+   EDITOR — renderização do canvas
+   Ordem: Fundo → Moldura (atrás) → Foto (na frente)
    ============================================================= */
 (function(window) {
   'use strict';
@@ -69,12 +70,25 @@
       return this.imageLoaded && !!this.image;
     },
 
+    /* =========================================================
+       RENDER — ORDEM CORRIGIDA
+       =========================================================
+       1. Fundo branco
+       2. Moldura (fica ATRÁS)
+       3. Foto do usuário (fica NA FRENTE, aparece no centro transparente)
+       ========================================================= */
     render: function() {
       const ctx = this.ctx;
       ctx.clearRect(0, 0, SIZE, SIZE);
+
+      // 1. Fundo branco (visível nas áreas transparentes da moldura)
       ctx.fillStyle = '#FFFFFF';
       ctx.fillRect(0, 0, SIZE, SIZE);
 
+      // 2. Moldura PRIMEIRO (fica atrás da foto)
+      if (window.Frames) window.Frames.drawOn(ctx, SIZE);
+
+      // 3. Foto do usuário POR ÚLTIMO (aparece por cima / no centro transparente)
       if (this.imageLoaded && this.image) {
         this._drawPhoto(ctx);
         this._updateUI(true);
@@ -82,9 +96,10 @@
         this._updateUI(false);
       }
 
-      if (window.Frames) window.Frames.drawOn(ctx, SIZE);
-
-      if (this._ui.downloadBtn) this._ui.downloadBtn.disabled = !this.imageLoaded;
+      // Estado do botão salvar
+      if (this._ui.downloadBtn) {
+        this._ui.downloadBtn.disabled = !this.imageLoaded;
+      }
     },
 
     _drawPhoto: function(ctx) {
