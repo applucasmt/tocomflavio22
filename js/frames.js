@@ -7,16 +7,13 @@
   'use strict';
 
   const CANVAS_SIZE = 1080;
-  const MAX_FRAMES = 100;              // limite de segurança
-  const STORAGE_KEY = 'molduras_detected_v1';
-  const CACHE_TTL = 1000 * 60 * 60;    // 1 hora
+  const MAX_FRAMES = 100;
+  const STORAGE_KEY = 'molduras_detected_v2';
+  const CACHE_TTL = 1000 * 60 * 60; // 1 hora
 
   /**
-   * Configuração de nomes dos arquivos
-   * Se seus arquivos têm outro padrão, mude aqui:
-   * - 'mold-XX.png'     → mold-01.png, mold-02.png...
-   * - 'mold XX.png'     → 'mold 01.png', 'mold 02.png'...
-   * - 'moldura-XX.png'  → moldura-01.png...
+   * Padrão dos nomes dos arquivos.
+   * Mude aqui se seus arquivos têm outro formato.
    */
   const FILE_PATTERN = function(i) {
     const n = String(i).padStart(2, '0');
@@ -32,27 +29,26 @@
     _failed: {},
     _detecting: false,
 
-    /* ============ INICIALIZAÇÃO ============ */
     async init(onChange) {
       this._onChange = onChange;
 
-      // 1. Tenta pegar do cache primeiro (rápido)
+      // 1. Cache primeiro (instantâneo)
       const cached = this._getFromCache();
       if (cached && cached.length > 0) {
-        console.log('[Frames] Usando cache:', cached.length, 'molduras');
+        console.log('[Frames] Cache:', cached.length, 'molduras');
+        this.urls = cached;
         this._setupUI(cached);
         this.load();
         return;
       }
 
-      // 2. Detecta do zero (primeira vez ou cache expirado)
+      // 2. Detecta do zero
       console.log('[Frames] Detectando molduras...');
       await this._detectFrames();
       this._setupUI(this.urls);
       this.load();
     },
 
-    /* ============ DETECÇÃO AUTOMÁTICA ============ */
     async _detectFrames() {
       if (this._detecting) return;
       this._detecting = true;
@@ -60,7 +56,6 @@
       const found = [];
       const self = this;
 
-      // Testa em lotes de 5 para ser mais rápido
       for (let start = 1; start <= MAX_FRAMES; start += 5) {
         const batch = [];
         for (let i = start; i < start + 5 && i <= MAX_FRAMES; i++) {
@@ -79,27 +74,22 @@
           }
         });
 
-        // Se nenhuma das 5 existe, paramos (assumimos que acabou)
         if (allFailed) break;
       }
 
-      // Ordena e monta as URLs
       found.sort(function(a, b) { return a - b; });
       this.urls = found.map(function(i) { return FILE_PATTERN(i); });
 
-      // Se não achou nenhuma, tenta um fallback (nomes alternativos)
       if (this.urls.length === 0) {
-        console.warn('[Frames] Nenhuma moldura detectada com padrão mold-XX.png');
-        this.urls = ['frames/mold-01.png']; // fallback
+        console.warn('[Frames] Nenhuma moldura detectada');
+      } else {
+        console.log('[Frames] Detectadas:', this.urls.length, 'molduras');
       }
-
-      console.log('[Frames] Detectadas:', this.urls.length, 'molduras:', this.urls);
 
       this._saveToCache(this.urls);
       this._detecting = false;
     },
 
-    /* Testa se uma URL de imagem existe */
     _checkExists(url) {
       return new Promise(function(resolve) {
         const img = new Image();
@@ -110,13 +100,12 @@
             resolved = true;
             resolve(false);
           }
-        }, 3000); // timeout de 3s por imagem
+        }, 3000);
 
         img.onload = function() {
           if (resolved) return;
           resolved = true;
           clearTimeout(timer);
-          // Verifica se tem dimensões válidas (evita página de erro)
           resolve(img.naturalWidth > 0 && img.naturalHeight > 0);
         };
 
@@ -131,7 +120,6 @@
       });
     },
 
-    /* ============ CACHE ============ */
     _getFromCache() {
       try {
         const raw = localStorage.getItem(STORAGE_KEY);
@@ -154,30 +142,32 @@
           timestamp: Date.now()
         }));
       } catch (e) {
-        console.warn('[Frames] Não foi possível salvar cache');
+        console.warn('[Frames] Cache falhou');
       }
     },
 
-    /* Força redetecção (útil se o usuário adicionar novas molduras) */
     async refresh() {
       localStorage.removeItem(STORAGE_KEY);
       this.urls = [];
       this.currentIndex = 0;
+      this._failed = {};
       await this.init(this._onChange);
     },
 
-    /* ============ UI ============ */
     _setupUI(urls) {
       const container = document.getElementById('frames');
       const countEl = document.getElementById('frameCount');
       if (!container) return;
 
       container.innerHTML = '';
-      if (countEl) countEl.textContent = urls.length + ' disponíveis';
+      if (countEl) countEl.textContent = urls.length + (urls.length === 1 ? ' disponível' : ' disponíveis');
 
-      // Define índice padrão como a última (mais recente)
+      if (urls.length === 0) {
+        container.innerHTML = '<div style="padding:20px;color:var(--text-sub);font-size:12px;text-align:center;width:100%">Nenhuma moldura encontrada</div>';
+        return;
+      }
+
       this.currentIndex = urls.length - 1;
-
       const self = this;
 
       for (let i = urls.length - 1; i >= 0; i--) {
@@ -197,7 +187,6 @@
           thumb.onerror = function() {
             self._failed[index] = true;
             el.style.opacity = '.35';
-            el.style.background = 'linear-gradient(135deg, #2A303C, #1E232E)';
             thumb.style.display = 'none';
             const fallback = document.createElement('span');
             fallback.textContent = '?';
@@ -237,7 +226,6 @@
       }
     },
 
-    /* ============ CARREGAR MOLDURA ATUAL ============ */
     load() {
       const self = this;
 
@@ -267,14 +255,13 @@
       this.activeImage.onerror = function() {
         self._failed[self.currentIndex] = true;
         self.loaded = false;
-        if (window.Toast) Toast.error('Moldura ' + (self.currentIndex + 1) + ' não encontrada');
+        if (window.Toast) Toast.error('Moldura não encontrada');
         if (self._onChange) self._onChange(null);
       };
 
       this.activeImage.src = this.urls[this.currentIndex];
     },
 
-    /* ============ DESENHAR NO CANVAS ============ */
     drawOn(ctx, size) {
       size = size || CANVAS_SIZE;
       if (this.loaded && this.activeImage.complete && this.activeImage.naturalWidth > 0) {
