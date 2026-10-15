@@ -305,3 +305,20 @@ body{
   .zoom-bar{padding:0 18px 10px}
   .frames-label{padding:0 18px 8px}
 }
+
+/* ============================================================
+   BOTÃO GERAR IA — escondido quando não configurado
+   ============================================================ */
+#generateBtn[data-not-configured="true"] {
+  opacity: 0.5;
+  filter: grayscale(0.6);
+}
+
+#generateBtn[data-not-configured="true"]::after {
+  content: "🔒";
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  font-size: 12px;
+  opacity: 0.9;
+}
