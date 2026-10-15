@@ -1,7 +1,7 @@
 /* =============================================================
    CAMERA — captura ao vivo com preview da moldura
    ============================================================= */
-(function(window){
+(function(window) {
   'use strict';
 
   const Camera = {
@@ -11,11 +11,10 @@
     _overlay: null,
     _captureBtn: null,
 
-    isActive() { return this.active; },
+    isActive: function() { return this.active; },
 
-    /** Abre a câmera frontal */
-    async open() {
-      if (!navigator.mediaDevices?.getUserMedia) {
+    open: function() {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         Toast.error('Câmera não suportada neste navegador');
         return;
       }
@@ -30,7 +29,9 @@
 
       const overlay = document.createElement('img');
       overlay.id = 'cameraOverlay';
-      if (window.Frames?.loaded) overlay.src = window.Frames.getImage().src;
+      if (window.Frames && window.Frames.loaded) {
+        overlay.src = window.Frames.getImage().src;
+      }
 
       stage.appendChild(video);
       stage.appendChild(overlay);
@@ -38,42 +39,44 @@
       this._video = video;
       this._overlay = overlay;
 
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: 'user',
-            width: { ideal: 1080 },
-            height: { ideal: 1080 }
-          },
-          audio: false
-        });
+      const self = this;
 
-        this.stream = stream;
+      navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: 'user',
+          width: { ideal: 1080 },
+          height: { ideal: 1080 }
+        },
+        audio: false
+      })
+      .then(function(stream) {
+        self.stream = stream;
         video.srcObject = stream;
 
-        await new Promise(res => {
-          video.onloadedmetadata = () => { video.play().then(res).catch(res); };
-        });
+        video.onloadedmetadata = function() {
+          video.play().then(function() {
+            self.active = true;
 
-        this.active = true;
-
-        // Botão capturar
-        const btn = document.createElement('button');
-        btn.id = 'captureBtn';
-        btn.className = 'btn btn-primary';
-        btn.innerHTML = '📸 Capturar';
-        btn.addEventListener('click', () => this.capture());
-        stage.appendChild(btn);
-        this._captureBtn = btn;
-
-      } catch (err) {
+            const btn = document.createElement('button');
+            btn.id = 'captureBtn';
+            btn.className = 'btn btn-primary';
+            btn.innerHTML = '📸 Capturar';
+            btn.addEventListener('click', function() { self.capture(); });
+            stage.appendChild(btn);
+            self._captureBtn = btn;
+          }).catch(function() {
+            Toast.error('Erro ao iniciar vídeo');
+            self.stop();
+          });
+        };
+      })
+      .catch(function() {
         Toast.error('Não foi possível acessar a câmera');
-        this.stop();
-      }
+        self.stop();
+      });
     },
 
-    /** Captura frame atual */
-    capture() {
+    capture: function() {
       const video = this._video;
       if (!video || !video.videoWidth) return;
 
@@ -88,26 +91,28 @@
       const sy = (video.videoHeight - s) / 2;
       tctx.drawImage(video, sx, sy, s, s, 0, 0, size, size);
 
+      const self = this;
       const img = new Image();
-      img.onload = () => {
-        this.stop();
+      img.onload = function() {
+        self.stop();
         if (window.Editor) {
           Editor.setImage(img, { resetView: true });
         }
+        const genBtn = document.getElementById('generateBtn');
+        if (genBtn) genBtn.disabled = false;
         Toast.success('Foto capturada!');
       };
       img.src = tmp.toDataURL('image/png');
     },
 
-    /** Fecha câmera e libera recursos */
-    stop() {
+    stop: function() {
       if (this.stream) {
-        this.stream.getTracks().forEach(t => t.stop());
+        this.stream.getTracks().forEach(function(t) { t.stop(); });
         this.stream = null;
       }
-      this._video?.remove();
-      this._overlay?.remove();
-      this._captureBtn?.remove();
+      if (this._video && this._video.parentNode) this._video.parentNode.removeChild(this._video);
+      if (this._overlay && this._overlay.parentNode) this._overlay.parentNode.removeChild(this._overlay);
+      if (this._captureBtn && this._captureBtn.parentNode) this._captureBtn.parentNode.removeChild(this._captureBtn);
       this._video = null;
       this._overlay = null;
       this._captureBtn = null;
