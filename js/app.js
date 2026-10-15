@@ -1,13 +1,13 @@
 /* =============================================================
    APP — orquestrador principal
    ============================================================= */
-(function(window){
+(function(window) {
   'use strict';
 
   const App = {
-    init() {
+    init: function() {
       Editor.init();
-      Frames.init(() => Editor.render());
+      Frames.init(function() { Editor.render(); });
       Frames.load();
       Gestures.init(Editor);
       Toast.init();
@@ -15,62 +15,148 @@
 
       this._bindButtons();
 
-      if (window.AI?.initFaceDetector) {
-        setTimeout(() => window.AI.initFaceDetector().catch(() => {}), 1000);
+      // Pré-carrega detector facial
+      if (window.AI && window.AI.initFaceDetector) {
+        setTimeout(function() {
+          window.AI.initFaceDetector().catch(function() {});
+        }, 1000);
       }
 
       this._updateStatus('ready');
     },
 
-    _bindButtons() {
+    _bindButtons: function() {
       const fileInput = document.getElementById('fileInput');
       const cameraBtn = document.getElementById('cameraBtn');
       const aiBtn = document.getElementById('aiBtn');
       const generateBtn = document.getElementById('generateBtn');
       const downloadBtn = document.getElementById('downloadBtn');
       const resetBtn = document.getElementById('resetBtn');
+      const aiBtnRef = aiBtn;
 
-      fileInput?.addEventListener('change', function() {
-        if (this.files?.[0]) {
+      if (fileInput) {
+        fileInput.addEventListener('change', function() {
+          if (this.files && this.files[0]) {
+            if (Camera.isActive()) Camera.stop();
+            App.handleFile(this.files[0]);
+          }
+        });
+      }
+
+      if (cameraBtn) {
+        cameraBtn.addEventListener('click', function() {
+          Camera.open();
+        });
+      }
+
+      // Recortar fundo (MediaPipe)
+      if (aiBtn) {
+        aiBtn.addEventListener('click', function() {
+          if (window.AI && window.AI.runFull) {
+            window.AI.runFull();
+          }
+        });
+      }
+
+      // Gerar com IA (Pollinations)
+      if (generateBtn) {
+        generateBtn.addEventListener('click', function() {
+          if (!window.Generator) {
+            Toast.error('Módulo de geração não carregado');
+            return;
+          }
+          window.Generator.generate();
+        });
+      }
+
+      if (downloadBtn) {
+        downloadBtn.addEventListener('click', function() {
+          Share.save();
+        });
+      }
+
+      if (resetBtn) {
+        resetBtn.addEventListener('click', function() {
           if (Camera.isActive()) Camera.stop();
-          App.handleFile(this.files[0]);
-        }
+          Editor.clearImage();
+          if (fileInput) fileInput.value = '';
+          const genBtn = document.getElementById('generateBtn');
+          if (genBtn) genBtn.disabled = true;
+          Toast.info('Foto removida');
+        });
+      }
+
+      // Observa mudança no botão AI para habilitar Gerar
+      if (aiBtnRef) {
+        const observer = new MutationObserver(function() {
+          const hasImage = Editor.hasImage();
+          const genBtn = document.getElementById('generateBtn');
+          if (genBtn) genBtn.disabled = !hasImage;
+        });
+        observer.observe(aiBtnRef, {
+          attributes: true,
+          attributeFilter: ['disabled']
+        });
+      }
+
+      window.addEventListener('ai-ready', function() {
+        App._updateStatus('ready');
       });
-
-      cameraBtn?.addEventListener('click', () => Camera.open());
-
-      // Recortar fundo (rápido)
-      aiBtn?.addEventListener('click', () => window.AI?.runFull());
-
-      // Gerar com IA (transformação completa)
-      generateBtn?.addEventListener('click', () => {
-        if (!window.Generator) {
-          Toast.error('Módulo de geração não carregado');
-          return;
-        }
-        window.Generator.generate();
-      });
-
-      downloadBtn?.addEventListener('click', () => Share.save());
-
-      resetBtn?.addEventListener('click', () => {
-        if (Camera.isActive()) Camera.stop();
-        Editor.clearImage();
-        if (fileInput) fileInput.value = '';
-        Toast.info('Foto removida');
-      });
-
-      // Habilita botão Gerar quando há imagem
-      const observer = new MutationObserver(() => {
-        const hasImage = Editor.hasImage();
-        if (generateBtn) generateBtn.disabled = !hasImage;
-      });
-      observer.observe(document.getElementById('aiBtn'), {
-        attributes: true, attributeFilter: ['disabled']
-      });
-
-      window.addEventListener('ai-ready', () => this._updateStatus('ready'));
     },
 
-    handleFile(file) {
-      if (!file || !file.type.startsWith('image/'))
+    handleFile: function(file) {
+      if (!file || !file.type.startsWith('image/')) {
+        Toast.error('Selecione uma imagem válida');
+        return;
+      }
+
+      const loader = document.getElementById('loader');
+      const loaderText = document.getElementById('loaderText');
+      if (loader) loader.classList.add('active');
+      if (loaderText) loaderText.textContent = 'Carregando imagem...';
+
+      const reader = new FileReader();
+
+      reader.onload = function(e) {
+        const img = new Image();
+        img.onload = function() {
+          Editor.setImage(img, { resetView: true });
+          if (loader) loader.classList.remove('active');
+
+          const genBtn = document.getElementById('generateBtn');
+          if (genBtn) genBtn.disabled = false;
+
+          Toast.success('Foto carregada!');
+        };
+        img.onerror = function() {
+          if (loader) loader.classList.remove('active');
+          Toast.error('Erro ao carregar imagem');
+        };
+        img.src = e.target.result;
+      };
+
+      reader.onerror = function() {
+        if (loader) loader.classList.remove('active');
+        Toast.error('Erro ao ler arquivo');
+      };
+
+      reader.readAsDataURL(file);
+    },
+
+    _updateStatus: function(state) {
+      const pill = document.getElementById('statusPill');
+      if (!pill) return;
+      pill.classList.remove('loading', 'error');
+      if (state === 'loading') pill.classList.add('loading');
+      else if (state === 'error') pill.classList.add('error');
+    }
+  };
+
+  window.App = App;
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function() { App.init(); });
+  } else {
+    App.init();
+  }
+})(window);
