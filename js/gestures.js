@@ -155,7 +155,6 @@
 
     _bindDragDrop: function() {
       const stage = this._stage;
-      const self = this;
 
       ['dragenter', 'dragover'].forEach(function(ev) {
         stage.addEventListener(ev, function(e) {
