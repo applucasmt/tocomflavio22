@@ -3,8 +3,6 @@
    Carregado como <script type="module">
    ============================================================= */
 
-// ✅ MediaPipe Tasks Vision (selfie segmentation + face detection)
-// Ambos rodam 100% no navegador, sem dependências externas problemáticas
 import {
   ImageSegmenter,
   FaceDetector,
@@ -12,13 +10,13 @@ import {
 } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs';
 
 /* ---------- Loader ---------- */
-function setLoader(active, text = 'Processando...', pct = null) {
+function setLoader(active, text, pct) {
   const el = document.getElementById('loader');
   const txt = document.getElementById('loaderText');
   const bar = document.getElementById('loaderBar');
-  if (txt) txt.textContent = text;
+  if (txt && text) txt.textContent = text;
   if (el) el.classList.toggle('active', active);
-  if (bar) bar.style.width = (pct === null ? 0 : pct) + '%';
+  if (bar) bar.style.width = (pct === null || pct === undefined ? 0 : pct) + '%';
 }
 
 /* ---------- Estado ---------- */
@@ -27,7 +25,7 @@ let faceDetector = null;
 let segmenterReady = false;
 let detectorReady = false;
 
-/* ---------- Init Segmenter (remoção de fundo) ---------- */
+/* ---------- Init Segmenter ---------- */
 async function initSegmenter() {
   if (segmenterReady) return segmenter;
   try {
@@ -39,8 +37,7 @@ async function initSegmenter() {
 
     segmenter = await ImageSegmenter.createFromOptions(vision, {
       baseOptions: {
-        modelAssetPath:
-          'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/1/selfie_segmenter.tflite',
+        modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/1/selfie_segmenter.tflite',
         delegate: 'GPU'
       },
       runningMode: 'IMAGE',
@@ -65,15 +62,16 @@ async function initFaceDetector() {
     const vision = await FilesetResolver.forVisionTasks(
       'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm'
     );
+
     faceDetector = await FaceDetector.createFromOptions(vision, {
       baseOptions: {
-        modelAssetPath:
-          'https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite',
+        modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite',
         delegate: 'GPU'
       },
       runningMode: 'IMAGE',
       minDetectionConfidence: 0.5
     });
+
     detectorReady = true;
     return faceDetector;
   } catch (e) {
@@ -92,13 +90,11 @@ async function removeBg() {
   try {
     const seg = await initSegmenter();
     if (!seg) {
-      window.Toast?.error('Modelo de recorte não disponível');
+      if (window.Toast) Toast.error('Modelo de recorte não disponível');
       return;
     }
 
     const img = editor.image;
-
-    // Cria canvas com a imagem em tamanho razoável (performance)
     const MAX = 1024;
     const scale = Math.min(1, MAX / Math.max(img.width, img.height));
     const w = Math.round(img.width * scale);
@@ -112,23 +108,18 @@ async function removeBg() {
 
     setLoader(true, 'IA analisando pessoa...', 40);
 
-    // Roda segmentação
-    const result = await new Promise((resolve, reject) => {
-      seg.segment(off, (res) => resolve(res));
+    const result = await new Promise(function(resolve) {
+      seg.segment(off, function(res) { resolve(res); });
     });
 
     setLoader(true, 'Aplicando máscara...', 70);
 
-    // Pega a máscara de confiança (primeira)
     const masks = result.confidenceMasks;
     if (!masks || masks.length === 0) throw new Error('Sem máscara');
 
     const mask = masks[0];
     const maskData = mask.getAsFloat32Array();
-    const maskW = mask.width;
-    const maskH = mask.height;
 
-    // Aplica a máscara como alpha na imagem original
     const out = document.createElement('canvas');
     out.width = w;
     out.height = h;
@@ -137,7 +128,6 @@ async function removeBg() {
     const imageData = octx2.getImageData(0, 0, w, h);
     const data = imageData.data;
 
-    // Para cada pixel, multiplica o alpha pelo valor da máscara
     for (let i = 0; i < maskData.length; i++) {
       const alpha = Math.max(0, Math.min(1, maskData[i]));
       data[i * 4 + 3] = Math.round(data[i * 4 + 3] * alpha);
@@ -146,23 +136,22 @@ async function removeBg() {
 
     setLoader(true, 'Finalizando...', 90);
 
-    // Cria nova imagem a partir do resultado
     const newImg = new Image();
-    newImg.onload = () => {
+    newImg.onload = function() {
       editor.setImage(newImg, { resetView: false, autoRender: true });
       setLoader(false);
-      window.Toast?.success('✨ Fundo removido!');
+      if (window.Toast) Toast.success('✨ Fundo removido!');
     };
-    newImg.onerror = () => {
+    newImg.onerror = function() {
       setLoader(false);
-      window.Toast?.error('Erro ao aplicar recorte');
+      if (window.Toast) Toast.error('Erro ao aplicar recorte');
     };
     newImg.src = out.toDataURL('image/png');
 
   } catch (err) {
     console.error(err);
     setLoader(false);
-    window.Toast?.error('Erro ao remover fundo: ' + err.message);
+    if (window.Toast) Toast.error('Erro ao remover fundo: ' + err.message);
   }
 }
 
@@ -185,8 +174,8 @@ async function autoFrameFace() {
     const result = detector.detect(tmp);
     if (!result.detections || result.detections.length === 0) return;
 
-    const faces = result.detections.map(d => d.boundingBox);
-    faces.sort((a, b) => (b.width * b.height) - (a.width * a.height));
+    const faces = result.detections.map(function(d) { return d.boundingBox; });
+    faces.sort(function(a, b) { return (b.width * b.height) - (a.width * a.height); });
     const face = faces[0];
 
     const faceCX = (face.originX + face.width / 2) / tmp.width;
@@ -195,7 +184,7 @@ async function autoFrameFace() {
     const aspect = img.width / img.height;
     let dw, dh;
     if (aspect > 1) { dh = 1080; dw = 1080 * aspect; }
-    else            { dw = 1080; dh = 1080 / aspect; }
+    else { dw = 1080; dh = 1080 / aspect; }
 
     const faceSizeNorm = Math.max(face.width / tmp.width, face.height / tmp.height);
     let newZoom = editor.zoom;
@@ -215,7 +204,7 @@ async function autoFrameFace() {
     if (zl) zl.textContent = Math.round(newZoom * 100) + '%';
 
     editor.render();
-    window.Toast?.success('✨ Rosto centralizado!');
+    if (window.Toast) Toast.success('✨ Rosto centralizado!');
   } catch (e) {
     console.warn('[AI] Auto-frame falhou:', e);
   }
@@ -223,17 +212,19 @@ async function autoFrameFace() {
 
 /* ---------- API pública ---------- */
 window.AI = {
-  initFaceDetector,
-  initSegmenter,
-  removeBg,
-  autoFrameFace,
-  async runFull() {
+  initFaceDetector: initFaceDetector,
+  initSegmenter: initSegmenter,
+  removeBg: removeBg,
+  autoFrameFace: autoFrameFace,
+  runFull: async function() {
     await removeBg();
     await autoFrameFace();
   }
 };
 
-// Pré-carrega detector facial (mais leve) em background
-setTimeout(() => initFaceDetector().catch(() => {}), 1500);
+/* Pré-carrega detector facial em background */
+setTimeout(function() {
+  initFaceDetector().catch(function() {});
+}, 1500);
 
 window.dispatchEvent(new Event('ai-ready'));
