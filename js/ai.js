@@ -1,16 +1,17 @@
 /* =============================================================
-   AI — remoção de fundo + detecção facial (módulos ES)
-   Carregado via <script type="module"> no index.html
+   AI — remoção de fundo (MediaPipe) + detecção facial
+   Carregado como <script type="module">
    ============================================================= */
 
-// Remoção de fundo (roda 100% no navegador)
-import { removeBackground } from 'https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.5.5/dist/index.mjs';
+// ✅ MediaPipe Tasks Vision (selfie segmentation + face detection)
+// Ambos rodam 100% no navegador, sem dependências externas problemáticas
+import {
+  ImageSegmenter,
+  FaceDetector,
+  FilesetResolver
+} from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs';
 
-// MediaPipe Tasks Vision (detecção facial)
-import { FaceDetector, FilesetResolver }
-  from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs';
-
-/* ---------- Loader helpers ---------- */
+/* ---------- Loader ---------- */
 function setLoader(active, text = 'Processando...', pct = null) {
   const el = document.getElementById('loader');
   const txt = document.getElementById('loaderText');
@@ -21,10 +22,43 @@ function setLoader(active, text = 'Processando...', pct = null) {
 }
 
 /* ---------- Estado ---------- */
+let segmenter = null;
 let faceDetector = null;
+let segmenterReady = false;
 let detectorReady = false;
 
-/* ---------- Inicializa detector facial em background ---------- */
+/* ---------- Init Segmenter (remoção de fundo) ---------- */
+async function initSegmenter() {
+  if (segmenterReady) return segmenter;
+  try {
+    setLoader(true, 'Carregando modelo de recorte...', 5);
+
+    const vision = await FilesetResolver.forVisionTasks(
+      'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm'
+    );
+
+    segmenter = await ImageSegmenter.createFromOptions(vision, {
+      baseOptions: {
+        modelAssetPath:
+          'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/1/selfie_segmenter.tflite',
+        delegate: 'GPU'
+      },
+      runningMode: 'IMAGE',
+      outputCategoryMask: false,
+      outputConfidenceMasks: true
+    });
+
+    segmenterReady = true;
+    setLoader(false);
+    return segmenter;
+  } catch (e) {
+    console.error('[AI] Segmenter falhou:', e);
+    setLoader(false);
+    return null;
+  }
+}
+
+/* ---------- Init FaceDetector ---------- */
 async function initFaceDetector() {
   if (detectorReady) return faceDetector;
   try {
@@ -34,7 +68,8 @@ async function initFaceDetector() {
     faceDetector = await FaceDetector.createFromOptions(vision, {
       baseOptions: {
         modelAssetPath:
-          'https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite'
+          'https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite',
+        delegate: 'GPU'
       },
       runningMode: 'IMAGE',
       minDetectionConfidence: 0.5
@@ -52,46 +87,82 @@ async function removeBg() {
   const editor = window.Editor;
   if (!editor.hasImage()) return;
 
-  setLoader(true, 'IA analisando a imagem...', 10);
+  setLoader(true, 'Preparando recorte...', 15);
 
   try {
-    // Converte imagem atual para Blob
+    const seg = await initSegmenter();
+    if (!seg) {
+      window.Toast?.error('Modelo de recorte não disponível');
+      return;
+    }
+
     const img = editor.image;
+
+    // Cria canvas com a imagem em tamanho razoável (performance)
+    const MAX = 1024;
+    const scale = Math.min(1, MAX / Math.max(img.width, img.height));
+    const w = Math.round(img.width * scale);
+    const h = Math.round(img.height * scale);
+
     const off = document.createElement('canvas');
-    off.width = img.width;
-    off.height = img.height;
-    off.getContext('2d').drawImage(img, 0, 0);
+    off.width = w;
+    off.height = h;
+    const octx = off.getContext('2d');
+    octx.drawImage(img, 0, 0, w, h);
 
-    const inputBlob = await new Promise(res => off.toBlob(res, 'image/png'));
+    setLoader(true, 'IA analisando pessoa...', 40);
 
-    setLoader(true, 'IA removendo o fundo...', 30);
-
-    const resultBlob = await removeBackground(inputBlob, {
-      output: { format: 'image/png', quality: 1 },
-      progress: (key, current, total) => {
-        const pct = 30 + Math.round((current / total) * 65);
-        setLoader(true, `IA processando... ${Math.round((current / total) * 100)}%`, pct);
-      }
+    // Roda segmentação
+    const result = await new Promise((resolve, reject) => {
+      seg.segment(off, (res) => resolve(res));
     });
 
-    const url = URL.createObjectURL(resultBlob);
+    setLoader(true, 'Aplicando máscara...', 70);
+
+    // Pega a máscara de confiança (primeira)
+    const masks = result.confidenceMasks;
+    if (!masks || masks.length === 0) throw new Error('Sem máscara');
+
+    const mask = masks[0];
+    const maskData = mask.getAsFloat32Array();
+    const maskW = mask.width;
+    const maskH = mask.height;
+
+    // Aplica a máscara como alpha na imagem original
+    const out = document.createElement('canvas');
+    out.width = w;
+    out.height = h;
+    const octx2 = out.getContext('2d');
+    octx2.drawImage(off, 0, 0);
+    const imageData = octx2.getImageData(0, 0, w, h);
+    const data = imageData.data;
+
+    // Para cada pixel, multiplica o alpha pelo valor da máscara
+    for (let i = 0; i < maskData.length; i++) {
+      const alpha = Math.max(0, Math.min(1, maskData[i]));
+      data[i * 4 + 3] = Math.round(data[i * 4 + 3] * alpha);
+    }
+    octx2.putImageData(imageData, 0, 0);
+
+    setLoader(true, 'Finalizando...', 90);
+
+    // Cria nova imagem a partir do resultado
     const newImg = new Image();
     newImg.onload = () => {
-      URL.revokeObjectURL(url);
       editor.setImage(newImg, { resetView: false, autoRender: true });
       setLoader(false);
-      window.Toast.success('✨ Fundo removido!');
+      window.Toast?.success('✨ Fundo removido!');
     };
     newImg.onerror = () => {
       setLoader(false);
-      window.Toast.error('Erro no processamento');
+      window.Toast?.error('Erro ao aplicar recorte');
     };
-    newImg.src = url;
+    newImg.src = out.toDataURL('image/png');
 
   } catch (err) {
     console.error(err);
     setLoader(false);
-    window.Toast.error(err.message || 'Erro ao remover fundo');
+    window.Toast?.error('Erro ao remover fundo: ' + err.message);
   }
 }
 
@@ -114,7 +185,6 @@ async function autoFrameFace() {
     const result = detector.detect(tmp);
     if (!result.detections || result.detections.length === 0) return;
 
-    // Pega o rosto maior (mais próximo)
     const faces = result.detections.map(d => d.boundingBox);
     faces.sort((a, b) => (b.width * b.height) - (a.width * a.height));
     const face = faces[0];
@@ -127,7 +197,6 @@ async function autoFrameFace() {
     if (aspect > 1) { dh = 1080; dw = 1080 * aspect; }
     else            { dw = 1080; dh = 1080 / aspect; }
 
-    // Zoom automático para o rosto ocupar ~50% do quadro
     const faceSizeNorm = Math.max(face.width / tmp.width, face.height / tmp.height);
     let newZoom = editor.zoom;
     if (faceSizeNorm > 0 && faceSizeNorm < 0.5) {
@@ -146,15 +215,16 @@ async function autoFrameFace() {
     if (zl) zl.textContent = Math.round(newZoom * 100) + '%';
 
     editor.render();
-    window.Toast.success('✨ Rosto centralizado!');
+    window.Toast?.success('✨ Rosto centralizado!');
   } catch (e) {
     console.warn('[AI] Auto-frame falhou:', e);
   }
 }
 
-/* ---------- Expoem para o app ---------- */
+/* ---------- API pública ---------- */
 window.AI = {
   initFaceDetector,
+  initSegmenter,
   removeBg,
   autoFrameFace,
   async runFull() {
@@ -163,8 +233,7 @@ window.AI = {
   }
 };
 
-/* Pré-carrega o detector */
-initFaceDetector();
+// Pré-carrega detector facial (mais leve) em background
+setTimeout(() => initFaceDetector().catch(() => {}), 1500);
 
-/* Notifica o app que a IA está pronta */
 window.dispatchEvent(new Event('ai-ready'));
