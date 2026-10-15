@@ -16,8 +16,8 @@
       // 2. Bind dos botões
       this._bindButtons();
 
-      // 3. Esconde o botão "Gerar IA" se não estiver configurado
-      this._hideGeneratorIfDisabled();
+      // 3. Verifica se o botão "Gerar IA" está configurado
+      this._checkGeneratorConfig();
 
       // 4. Pré-carrega detector facial
       if (window.AI && window.AI.initFaceDetector) {
@@ -34,8 +34,6 @@
        BIND DE BOTÕES
        ========================================================= */
     _bindButtons: function() {
-      const self = this;
-
       const fileInput   = document.getElementById('fileInput');
       const cameraBtn   = document.getElementById('cameraBtn');
       const aiBtn       = document.getElementById('aiBtn');
@@ -79,14 +77,7 @@
             Toast.error('Módulo de geração não carregado');
             return;
           }
-          // Verifica se está configurado
-          if (window.Generator.isEnabled && !window.Generator.isEnabled()) {
-            Toast.info('🔧 IA de geração não configurada. Veja o README.');
-            console.warn(
-              '[App] Para ativar a geração IA, configure REPLICATE_TOKEN em js/generator.js'
-            );
-            return;
-          }
+          // Chama direto — o próprio Generator avisa se não configurado
           window.Generator.generate();
         });
       }
@@ -142,9 +133,8 @@
       if (aiBtn && generateBtn) {
         const observer = new MutationObserver(function() {
           const hasImage = Editor.hasImage();
-          // Só habilita se tiver imagem E IA configurada
-          const isConfigured = !window.Generator?.isEnabled || window.Generator.isEnabled();
-          generateBtn.disabled = !hasImage || !isConfigured;
+          // Habilita sempre que tiver imagem
+          generateBtn.disabled = !hasImage;
         });
         observer.observe(aiBtn, {
           attributes: true,
@@ -159,28 +149,38 @@
     },
 
     /* =========================================================
-       ESCONDE BOTÃO "GERAR IA" SE NÃO ESTIVER CONFIGURADO
+       VERIFICA SE O GENERATOR ESTÁ CONFIGURADO
+       (só para log no console — o botão fica sempre visível)
        ========================================================= */
-    _hideGeneratorIfDisabled: function() {
+    _checkGeneratorConfig: function() {
       const generateBtn = document.getElementById('generateBtn');
-      if (!generateBtn) return;
+      if (!generateBtn) {
+        console.warn('[App] ⚠️ Botão "Gerar IA" não encontrado no DOM');
+        return;
+      }
 
-      // Se o Generator existe e tem o método isEnabled
-      if (window.Generator && typeof window.Generator.isEnabled === 'function') {
-        if (!window.Generator.isEnabled()) {
-          // Marca como "não configurado" — CSS esconde, mas ainda dá para
-          // clicar e ver a mensagem explicativa
+      if (!window.Generator) {
+        console.warn('[App] ⚠️ Módulo Generator não carregado');
+        return;
+      }
+
+      if (typeof window.Generator.isEnabled === 'function') {
+        if (window.Generator.isEnabled()) {
+          generateBtn.dataset.notConfigured = '';
+          generateBtn.title = 'Gerar versão profissional com IA';
+          console.info('[App] ✅ IA de geração configurada e pronta!');
+        } else {
           generateBtn.dataset.notConfigured = 'true';
-          generateBtn.title = 'IA de geração não configurada — veja o README';
-          console.warn(
-            '[App] Botão "Gerar IA" marcado como não configurado. ' +
-            'Configure REPLICATE_TOKEN em js/generator.js para ativar.'
+          generateBtn.title = 'IA não configurada — clique para saber mais';
+          console.info(
+            '[App] ℹ️ Botão "Gerar IA" está visível mas não configurado.\n' +
+            'Para ativar:\n' +
+            '  1. Crie conta em https://replicate.com\n' +
+            '  2. Pegue token em https://replicate.com/account/api-tokens\n' +
+            '  3. Cole em REPLICATE_TOKEN em js/generator.js\n' +
+            '  4. Pegue MODEL_VERSION em https://replicate.com/lucataco/ip-adapter-faceid'
           );
         }
-      } else {
-        // Generator não carregou — esconde o botão completamente
-        generateBtn.style.display = 'none';
-        console.warn('[App] Módulo Generator não encontrado — botão oculto.');
       }
     },
 
@@ -207,12 +207,9 @@
           Editor.setImage(img, { resetView: true });
           if (loader) loader.classList.remove('active');
 
-          // Habilita botão "Gerar IA" se estiver configurado
+          // Habilita botão "Gerar IA"
           const genBtn = document.getElementById('generateBtn');
-          if (genBtn) {
-            const isConfigured = !window.Generator?.isEnabled || window.Generator.isEnabled();
-            genBtn.disabled = !isConfigured;
-          }
+          if (genBtn) genBtn.disabled = false;
 
           Toast.success('Foto carregada!');
         };
