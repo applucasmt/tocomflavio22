@@ -1,22 +1,47 @@
 /* =============================================================
-   GENERATOR — IA de geração de imagem (Pollinations)
+   GENERATOR — Geração com IA preservando identidade
+   
+   MODO ATUAL: Desativado (Pollinations gera rosto aleatório)
+   → O botão fica oculto até você configurar uma API que
+     preserve a identidade da pessoa.
+   
+   COMO ATIVAR:
+   1. Crie conta em https://replicate.com
+   2. Pegue seu token em https://replicate.com/account/api-tokens
+   3. Cole o token em REPLICATE_TOKEN abaixo
+   4. Descomente as linhas marcadas com [ATIVAR]
    ============================================================= */
 (function(window) {
   'use strict';
 
-  const DEFAULT_PROMPT = 'Professional close-up portrait photograph of the person, maintaining strictly the same identity, face, expression and physical characteristics from the reference image, without any alteration. The person is facing right in a three-quarter profile view, with the same long dark brown hair with highlights, the same natural smile looking to the side, and wearing the same thin necklace with a small pendant from the reference. The person is in an outdoor setting, like a wooded park, with softly blurred background (bokeh effect) showing foliage, trees, and natural daylight. Framing is shoulder-up portrait, with soft natural lighting that highlights the details of their hair and smile. Ultra-realistic, 8k, professional photography.';
+  // ============================================================
+  // CONFIGURAÇÃO
+  // ============================================================
+  const REPLICATE_TOKEN = ''; // ← Cole seu token aqui para ativar
+  const USE_REPLICATE = REPLICATE_TOKEN.length > 0;
+
+  const PROMPT = 'A professional close-up portrait photograph, maintaining rigorously the same identity, face, expression and physical characteristics of the person in the reference image, without any alteration. Three-quarter profile view facing right, same hair, same natural smile, same features. Outdoor setting with softly blurred background (bokeh), natural warm lighting, ultra-realistic, 8k professional photography.';
 
   const Generator = {
     isGenerating: false,
-    prompt: DEFAULT_PROMPT,
+    prompt: PROMPT,
 
-    generate: function() {
-      const self = this;
+    /**
+     * Gera imagem preservando identidade
+     * Só funciona se REPLICATE_TOKEN estiver configurado
+     */
+    async generate() {
       if (this.isGenerating) return;
 
       const editor = window.Editor;
       if (!editor.hasImage()) {
         Toast.error('Carregue uma foto primeiro');
+        return;
+      }
+
+      if (!USE_REPLICATE) {
+        Toast.error('IA de geração não configurada. Veja o README.');
+        console.warn('[Generator] Configure REPLICATE_TOKEN em js/generator.js');
         return;
       }
 
@@ -29,86 +54,117 @@
         btn.innerHTML = '⏳ Gerando com IA...';
       }
 
-      Toast.info('🎨 Gerando imagem com IA... (30-60s)');
+      try {
+        Toast.info('🎨 Gerando com IA... (30-60s)');
 
-      const url = this._buildPollinationsUrl(this.prompt);
-      console.log('[Generator] URL:', url);
+        // 1. Converte imagem atual para dataURL
+        const img = editor.image;
+        const off = document.createElement('canvas');
+        const MAX = 768;
+        const scale = Math.min(1, MAX / Math.max(img.width, img.height));
+        off.width = Math.round(img.width * scale);
+        off.height = Math.round(img.height * scale);
+        off.getContext('2d').drawImage(img, 0, 0, off.width, off.height);
+        const dataUrl = off.toDataURL('image/jpeg', 0.9);
 
-      this._preloadImage(url, 90000)
-        .then(function(finalUrl) {
-          console.log('[Generator] Imagem gerada');
-          const newImg = new Image();
-          newImg.crossOrigin = 'anonymous';
+        // 2. Chama Replicate
+        const resultUrl = await this._callReplicate(dataUrl, this.prompt);
 
-          return new Promise(function(resolve, reject) {
-            newImg.onload = function() {
-              console.log('[Generator] Carregada:', newImg.width, 'x', newImg.height);
-              resolve(newImg);
-            };
-            newImg.onerror = function() {
-              reject(new Error('Falha ao carregar resultado'));
-            };
-            newImg.src = finalUrl;
-          });
-        })
-        .then(function(newImg) {
-          editor.setImage(newImg, { resetView: true, autoRender: true });
-          Toast.success('✨ Imagem gerada! Aplicando moldura...');
+        // 3. Carrega resultado
+        const newImg = await this._loadImage(resultUrl);
 
-          setTimeout(function() {
-            if (window.AI && window.AI.autoFrameFace) {
-              window.AI.autoFrameFace();
-            }
-          }, 500);
-        })
-        .catch(function(err) {
-          console.error('[Generator] Erro:', err);
-          Toast.error('Erro: ' + (err.message || 'Falha na geração'));
-        })
-        .then(function() {
-          self.isGenerating = false;
-          if (btn) {
-            btn.disabled = false;
-            btn.innerHTML = originalText;
+        // 4. Aplica no editor
+        editor.setImage(newImg, { resetView: true, autoRender: true });
+        Toast.success('✨ Imagem gerada com IA!');
+
+        // 5. Auto-enquadra rosto
+        setTimeout(() => {
+          if (window.AI?.autoFrameFace) window.AI.autoFrameFace();
+        }, 500);
+
+      } catch (err) {
+        console.error('[Generator] Erro:', err);
+        Toast.error('Erro: ' + (err.message || 'Falha na geração'));
+      } finally {
+        this.isGenerating = false;
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = originalText;
+        }
+      }
+    },
+
+    /**
+     * Replicate — IP-Adapter FaceID
+     * Docs: https://replicate.com/lucataco/ip-adapter-faceid
+     *
+     * Fluxo:
+     * 1. Faz upload da imagem como data URL
+     * 2. Chama a API com o prompt + imagem de referência
+     * 3. Aguarda o resultado (polling)
+     * 4. Retorna a URL da imagem gerada
+     */
+    async _callReplicate(dataUrl, prompt) {
+      const REPLICATE_API = 'https://api.replicate.com/v1/predictions';
+      const MODEL_VERSION = 'c0e3d4c2a5c... '; // ← Substitua pela versão exata do modelo escolhido
+
+      // Opção A: usar modelo pronto (mais simples)
+      // https://replicate.com/lucataco/ip-adapter-faceid
+      const response = await fetch(REPLICATE_API, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${REPLICATE_TOKEN}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          // Use a versão EXATA do modelo que você quer
+          // (pegue em https://replicate.com/lucataco/ip-adapter-faceid/api)
+          version: 'YOUR_MODEL_VERSION_HERE',
+          input: {
+            prompt: prompt,
+            image: dataUrl,           // foto de referência
+            negative_prompt: 'different person, changed face, different hair, wrong identity',
+            num_outputs: 1,
+            guidance_scale: 7.5,
+            num_inference_steps: 30
           }
+        })
+      });
+
+      if (!response.ok) {
+        const err = await response.text();
+        throw new Error('Replicate: ' + err);
+      }
+
+      let prediction = await response.json();
+
+      // Polling até terminar
+      while (prediction.status === 'starting' || prediction.status === 'processing') {
+        await new Promise(r => setTimeout(r, 1500));
+        const poll = await fetch(`${REPLICATE_API}/${prediction.id}`, {
+          headers: { 'Authorization': `Bearer ${REPLICATE_TOKEN}` }
         });
+        prediction = await poll.json();
+      }
+
+      if (prediction.status === 'failed') {
+        throw new Error(prediction.error || 'Falha na geração');
+      }
+
+      return prediction.output[0]; // URL da imagem
     },
 
-    _buildPollinationsUrl: function(prompt) {
-      const encoded = encodeURIComponent(prompt);
-      const seed = Math.floor(Math.random() * 1000000);
-      return 'https://image.pollinations.ai/prompt/' + encoded +
-             '?width=1024&height=1024&seed=' + seed +
-             '&model=flux&nologo=true&enhance=true';
-    },
-
-    _preloadImage: function(url, timeoutMs) {
-      timeoutMs = timeoutMs || 60000;
-      return new Promise(function(resolve, reject) {
+    _loadImage(url) {
+      return new Promise((resolve, reject) => {
         const img = new Image();
         img.crossOrigin = 'anonymous';
-
-        const timer = setTimeout(function() {
-          reject(new Error('Timeout ao gerar imagem'));
-        }, timeoutMs);
-
-        img.onload = function() {
-          clearTimeout(timer);
-          if (img.naturalWidth < 10) {
-            reject(new Error('Imagem inválida recebida'));
-            return;
-          }
-          resolve(url);
-        };
-        img.onerror = function() {
-          clearTimeout(timer);
-          reject(new Error('Falha ao gerar imagem (servidor indisponível)'));
-        };
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error('Falha ao carregar resultado'));
         img.src = url;
       });
     },
 
-    setPrompt: function(newPrompt) {
+    setPrompt(newPrompt) {
       this.prompt = newPrompt;
     }
   };
