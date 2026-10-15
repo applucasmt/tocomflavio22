@@ -17,7 +17,7 @@
   // ============================================================
   // CONFIGURAÇÃO
   // ============================================================
-  const REPLICATE_TOKEN = ''; // ← Cole seu token aqui para ativar
+  const REPLICATE_TOKEN = 'r8_30D3TQRZ9o5GUz7QUdbOyrMNveL7zNg1Stuvs'; // ← Cole seu token aqui para ativar
   const USE_REPLICATE = REPLICATE_TOKEN.length > 0;
 
   const PROMPT = 'A professional close-up portrait photograph, maintaining rigorously the same identity, face, expression and physical characteristics of the person in the reference image, without any alteration. Three-quarter profile view facing right, same hair, same natural smile, same features. Outdoor setting with softly blurred background (bokeh), natural warm lighting, ultra-realistic, 8k professional photography.';
