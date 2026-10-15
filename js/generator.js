@@ -1,6 +1,5 @@
 /* =============================================================
-   GENERATOR — IA de geração de imagem
-   Usa Pollinations.ai (grátis, sem key)
+   GENERATOR — IA de geração de imagem (Pollinations)
    ============================================================= */
 (function(window) {
   'use strict';
@@ -27,33 +26,40 @@
 
       if (btn) {
         btn.disabled = true;
-        btn.innerHTML = '⏳ Gerando...';
+        btn.innerHTML = '⏳ Gerando com IA...';
       }
 
-      Toast.info('🎨 Gerando com IA... (30-60s)');
+      Toast.info('🎨 Gerando imagem com IA... (30-60s)');
 
       const url = this._buildPollinationsUrl(this.prompt);
+      console.log('[Generator] URL:', url);
 
       this._preloadImage(url, 90000)
         .then(function(finalUrl) {
+          console.log('[Generator] Imagem gerada');
           const newImg = new Image();
           newImg.crossOrigin = 'anonymous';
 
           return new Promise(function(resolve, reject) {
-            newImg.onload = function() { resolve(newImg); };
-            newImg.onerror = function() { reject(new Error('Falha ao carregar resultado')); };
+            newImg.onload = function() {
+              console.log('[Generator] Carregada:', newImg.width, 'x', newImg.height);
+              resolve(newImg);
+            };
+            newImg.onerror = function() {
+              reject(new Error('Falha ao carregar resultado'));
+            };
             newImg.src = finalUrl;
           });
         })
         .then(function(newImg) {
           editor.setImage(newImg, { resetView: true, autoRender: true });
-          Toast.success('✨ Imagem gerada!');
+          Toast.success('✨ Imagem gerada! Aplicando moldura...');
 
           setTimeout(function() {
-            if (window.AI && window.AI.removeBg) {
-              window.AI.removeBg();
+            if (window.AI && window.AI.autoFrameFace) {
+              window.AI.autoFrameFace();
             }
-          }, 600);
+          }, 500);
         })
         .catch(function(err) {
           console.error('[Generator] Erro:', err);
