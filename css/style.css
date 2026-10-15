@@ -41,6 +41,9 @@ body{
   font-feature-settings:"cv02","cv03","cv04","cv11";
 }
 
+/* ============================================================
+   APP CONTAINER
+   ============================================================ */
 .app{
   width:100%;max-width:520px;
   background:linear-gradient(180deg, rgba(20,24,33,.92), rgba(20,24,33,.78));
@@ -55,6 +58,9 @@ body{
 }
 @keyframes appIn{from{opacity:0;transform:translateY(24px) scale(.97)}to{opacity:1;transform:none}}
 
+/* ============================================================
+   HEADER
+   ============================================================ */
 .header{
   padding:20px 22px 14px;
   display:flex;align-items:center;justify-content:space-between;
@@ -95,6 +101,9 @@ body{
 .pill.error .dot{background:var(--danger);box-shadow:0 0 10px var(--danger)}
 @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.85)}}
 
+/* ============================================================
+   STAGE
+   ============================================================ */
 .stage{
   position:relative;width:100%;aspect-ratio:1/1;
   background:repeating-conic-gradient(#141821 0% 25%, #1A1F2B 0% 50%) 50%/24px 24px;
@@ -138,6 +147,9 @@ body{
 .placeholder .p-title{font-weight:600;color:var(--text);font-size:15.5px}
 .placeholder .p-sub{font-size:12.5px;max-width:260px;line-height:1.55}
 
+/* ============================================================
+   LOADER
+   ============================================================ */
 .loader{
   position:absolute;inset:0;z-index:50;
   display:none;flex-direction:column;align-items:center;justify-content:center;
@@ -170,6 +182,9 @@ body{
   border-radius:2px;transition:width .3s;
 }
 
+/* ============================================================
+   HINT + ZOOM
+   ============================================================ */
 .hint{
   text-align:center;font-size:12px;color:var(--text-sub);
   padding:10px 24px 6px;display:none;
@@ -195,6 +210,9 @@ body{
 }
 .zoom-bar .z-label{font-size:11px;color:var(--text-sub);font-weight:600;min-width:36px;text-align:center}
 
+/* ============================================================
+   FRAMES
+   ============================================================ */
 .frames-label{
   padding:0 24px 8px;
   font-size:11px;font-weight:700;color:var(--text-sub);
@@ -234,6 +252,9 @@ body{
 }
 .frame.active .num{background:var(--secondary);color:#0F1115}
 
+/* ============================================================
+   CONTROLS
+   ============================================================ */
 .controls{padding:0 24px 24px;display:flex;flex-direction:column;gap:10px;}
 .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 
@@ -280,6 +301,34 @@ body{
   color:#fff;box-shadow:0 6px 22px rgba(139,92,246,.4);
 }
 
+/* ============================================================
+   BOTÃO GERAR IA — aviso visual quando não configurado
+   ============================================================ */
+#generateBtn {
+  opacity: 1;
+  transition: opacity .2s, filter .2s, box-shadow .2s;
+}
+
+#generateBtn[data-not-configured="true"] {
+  opacity: 0.75;
+  filter: grayscale(0.35);
+}
+
+#generateBtn[data-not-configured="true"]::after {
+  content: "🔒";
+  margin-left: 6px;
+  font-size: 13px;
+  opacity: 0.9;
+}
+
+#generateBtn[data-not-configured="true"]:hover {
+  opacity: 0.9;
+  filter: grayscale(0.15);
+}
+
+/* ============================================================
+   TOAST
+   ============================================================ */
 .toast{
   position:fixed;bottom:24px;left:50%;
   transform:translateX(-50%) translateY(120px);
@@ -297,6 +346,9 @@ body{
 .toast.error::before{content:"⚠️"}
 .toast.info::before{content:"ℹ️"}
 
+/* ============================================================
+   RESPONSIVO
+   ============================================================ */
 @media (max-width:400px){
   .app{border-radius:22px}
   .header{padding:16px 18px 12px}
@@ -304,21 +356,4 @@ body{
   .controls{padding:0 18px 18px}
   .zoom-bar{padding:0 18px 10px}
   .frames-label{padding:0 18px 8px}
-}
-
-/* ============================================================
-   BOTÃO GERAR IA — escondido quando não configurado
-   ============================================================ */
-#generateBtn[data-not-configured="true"] {
-  opacity: 0.5;
-  filter: grayscale(0.6);
-}
-
-#generateBtn[data-not-configured="true"]::after {
-  content: "🔒";
-  position: absolute;
-  top: 6px;
-  right: 8px;
-  font-size: 12px;
-  opacity: 0.9;
 }
