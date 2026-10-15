@@ -2,7 +2,7 @@
   "name": "Criador de Molduras IA",
   "short_name": "Molduras IA",
   "description": "Crie fotos com molduras personalizadas usando IA no navegador",
-  "start_url": "./index.html",
+  "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
@@ -11,24 +11,5 @@
   "lang": "pt-BR",
   "dir": "ltr",
   "categories": ["photo", "graphics", "utilities"],
-  "icons": [
-    {
-      "src": "icons/icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "icons/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "icons/icon-maskable.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "maskable"
-    }
-  ]
+  "icons": []
 }
