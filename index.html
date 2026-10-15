@@ -4,116 +4,235 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#0A0C10">
+
+<!-- ============================================================
+     PWA META TAGS (versões atualizadas, sem deprecation warnings)
+     ============================================================ -->
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Molduras IA">
-<meta name="description" content="Criador de molduras com IA — grátis, open source, roda no navegador">
+<meta name="application-name" content="Molduras IA">
+<meta name="format-detection" content="telephone=no">
+<meta name="msapplication-TileColor" content="#006805">
+
+<!-- ============================================================
+     SEO / Open Graph
+     ============================================================ -->
+<meta name="description" content="Criador de molduras com IA — grátis, open source, roda 100% no navegador">
 <meta name="author" content="Criador de Molduras IA">
-<meta name="keywords" content="moldura, foto, ia, molduras, foto com moldura, editor de foto">
+<meta name="keywords" content="moldura, foto, ia, molduras, editor de foto, retrato profissional">
 <meta property="og:title" content="Criador de Molduras IA">
 <meta property="og:description" content="Adicione molduras profissionais em suas fotos com IA">
 <meta property="og:type" content="website">
+<meta property="og:locale" content="pt_BR">
 <meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Criador de Molduras IA">
+<meta name="twitter:description" content="Adicione molduras profissionais em suas fotos com IA">
 
 <title>Criador de Molduras IA</title>
 
-<link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="icons/icon-192.png">
-<link rel="icon" type="image/png" href="icons/icon-192.png">
+<!-- ============================================================
+     FAVICON SVG INLINE (evita 404 de /favicon.ico)
+     ============================================================ -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='5' fill='%23006805'/%3E%3Cpath d='M6 6h4v4H6zM14 6h4v4h-4zM6 14h4v4H6zM14 14h4v4h-4z' fill='%2371BF50'/%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='5' fill='%23006805'/%3E%3Cpath d='M6 6h4v4H6zM14 6h4v4h-4zM6 14h4v4H6zM14 14h4v4h-4z' fill='%2371BF50'/%3E%3C/svg%3E">
 
-<!-- Pré-conexão com CDNs -->
+<!-- PWA Manifest (com icons:[] para evitar 404) -->
+<link rel="manifest" href="manifest.json">
+
+<!-- ============================================================
+     PRE-CONNECT (acelera carregamento de CDNs)
+     ============================================================ -->
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link rel="preconnect" href="https://storage.googleapis.com" crossorigin>
+<link rel="preconnect" href="https://image.pollinations.ai" crossorigin>
 
-<!-- Estilos -->
+<!-- ============================================================
+     ESTILOS
+     ============================================================ -->
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 
 <div class="app">
-  <!-- HEADER -->
+
+  <!-- ==========================================================
+       HEADER
+       ========================================================== -->
   <header class="header">
     <div class="brand">
-      <div class="brand-logo">
-        <svg viewBox="0 0 24 24"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></svg>
+      <div class="brand-logo" aria-hidden="true">
+        <svg viewBox="0 0 24 24">
+          <path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/>
+        </svg>
       </div>
       <div class="brand-text">
         <h1>Criador de Molduras</h1>
         <p>Powered by IA • Open Source</p>
       </div>
     </div>
-    <div class="pill" id="statusPill"><span class="dot"></span>IA</div>
+    <div class="pill" id="statusPill" role="status" aria-live="polite">
+      <span class="dot" aria-hidden="true"></span>
+      <span>IA</span>
+    </div>
   </header>
 
-  <!-- STAGE -->
-  <div class="stage" id="stage">
-    <canvas id="canvas" width="1080" height="1080"></canvas>
+  <!-- ==========================================================
+       STAGE (canvas + overlays)
+       ========================================================== -->
+  <div class="stage" id="stage" role="region" aria-label="Área de edição da foto">
 
-    <div class="placeholder" id="placeholder">
-      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+    <canvas id="canvas" width="1080" height="1080" aria-label="Pré-visualização da moldura"></canvas>
+
+    <!-- Placeholder (quando não há imagem) -->
+    <div class="placeholder" id="placeholder" aria-hidden="true">
+      <svg viewBox="0 0 24 24">
+        <rect x="3" y="3" width="18" height="18" rx="3"/>
+        <circle cx="8.5" cy="8.5" r="1.5"/>
+        <path d="M21 15l-5-5L5 21"/>
+      </svg>
       <div class="p-title">Adicione sua foto</div>
       <div class="p-sub">Galeria, câmera ou arraste uma imagem</div>
     </div>
 
-    <div class="loader" id="loader">
-      <div class="spinner"></div>
+    <!-- Loader (durante processamento de IA) -->
+    <div class="loader" id="loader" role="status" aria-live="polite">
+      <div class="spinner" aria-hidden="true"></div>
       <div class="loader-text" id="loaderText">Processando...</div>
-      <div class="loader-progress"><div class="loader-progress-bar" id="loaderBar"></div></div>
+      <div class="loader-progress" aria-hidden="true">
+        <div class="loader-progress-bar" id="loaderBar"></div>
+      </div>
     </div>
+
   </div>
 
-  <div class="hint" id="hint">👆 Arraste • 🤏 Pinça para zoom</div>
+  <!-- ==========================================================
+       HINT (dica de gestos)
+       ========================================================== -->
+  <div class="hint" id="hint" role="note">
+    👆 Arraste • 🤏 Pinça para zoom
+  </div>
 
+  <!-- ==========================================================
+       ZOOM SLIDER
+       ========================================================== -->
   <div class="zoom-bar" id="zoomBar" style="display:none">
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-sub)" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35M8 11h6"/></svg>
-    <input type="range" id="zoomSlider" min="0.5" max="4" step="0.01" value="1" aria-label="Zoom">
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-sub)" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35M11 8v6M8 11h6"/></svg>
-    <span class="z-label" id="zoomLabel">100%</span>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+         stroke="currentColor" stroke-width="2" aria-hidden="true"
+         style="color:var(--text-sub)">
+      <circle cx="11" cy="11" r="7"/>
+      <path d="M21 21l-4.35-4.35M8 11h6"/>
+    </svg>
+    <input type="range" id="zoomSlider" min="0.5" max="4" step="0.01" value="1"
+           aria-label="Nível de zoom">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+         stroke="currentColor" stroke-width="2" aria-hidden="true"
+         style="color:var(--text-sub)">
+      <circle cx="11" cy="11" r="7"/>
+      <path d="M21 21l-4.35-4.35M11 8v6M8 11h6"/>
+    </svg>
+    <span class="z-label" id="zoomLabel" aria-live="polite">100%</span>
   </div>
 
+  <!-- ==========================================================
+       SELETOR DE MOLDURAS
+       ========================================================== -->
   <div class="frames-label">
     <span>Molduras</span>
     <span style="color:var(--text-sub);font-size:10px" id="frameCount">0</span>
   </div>
-  <div class="frames" id="frames"></div>
+  <div class="frames" id="frames" role="listbox" aria-label="Escolha uma moldura"></div>
 
+  <!-- ==========================================================
+       CONTROLES
+       ========================================================== -->
   <div class="controls">
+
+    <!-- Linha 1: Galeria + Câmera -->
     <div class="row">
-      <button class="btn btn-upload" id="uploadBtn" aria-label="Escolher da galeria">
-        <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M17 8l-5-5-5 5M12 3v12"/></svg>
-        Galeria
-        <input type="file" id="fileInput" accept="image/*">
+      <button class="btn btn-upload" id="uploadBtn" aria-label="Escolher foto da galeria">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+          <path d="M17 8l-5-5-5 5M12 3v12"/>
+        </svg>
+        <span>Galeria</span>
+        <input type="file" id="fileInput" accept="image/*" aria-label="Selecionar arquivo de imagem">
       </button>
+
       <button class="btn btn-camera" id="cameraBtn" aria-label="Abrir câmera">
-        <svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
-        Câmera
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
+          <circle cx="12" cy="13" r="4"/>
+        </svg>
+        <span>Câmera</span>
       </button>
     </div>
 
-    <button class="btn btn-ai" id="aiBtn" disabled aria-label="Recortar fundo com IA">
-      <svg viewBox="0 0 24 24"><path d="M12 2l2.4 7.4H22l-6 4.6 2.3 7.4-6.3-4.6L5.7 21.4 8 14 2 9.4h7.6z"/></svg>
-      Recortar fundo com IA
+    <!-- Linha 2: Gerar com IA (destaque) -->
+    <button class="btn btn-ai" id="generateBtn" disabled
+            aria-label="Gerar versão profissional com IA">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 2l2.4 7.4H22l-6 4.6 2.3 7.4-6.3-4.6L5.7 21.4 8 14 2 9.4h7.6z"/>
+      </svg>
+      <span>✨ Gerar versão IA</span>
     </button>
 
-    <button class="btn btn-primary" id="downloadBtn" disabled aria-label="Salvar ou compartilhar">
-      <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>
-      Salvar / Compartilhar
+    <!-- Linha 3: Recortar fundo -->
+    <button class="btn btn-ai" id="aiBtn" disabled
+            style="background:linear-gradient(135deg,#0EA5E9,#6366F1)"
+            aria-label="Recortar fundo com IA">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 2l2.4 7.4H22l-6 4.6 2.3 7.4-6.3-4.6L5.7 21.4 8 14 2 9.4h7.6z"/>
+      </svg>
+      <span>✂️ Recortar fundo</span>
     </button>
 
-    <button class="btn btn-ghost" id="resetBtn" style="display:none" aria-label="Remover foto">
-      <svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
-      Remover foto
+    <!-- Linha 4: Salvar/Compartilhar -->
+    <button class="btn btn-primary" id="downloadBtn" disabled
+            aria-label="Salvar ou compartilhar imagem final">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/>
+        <path d="M17 21v-8H7v8M7 3v5h8"/>
+      </svg>
+      <span>Salvar / Compartilhar</span>
     </button>
+
+    <!-- Linha 5: Remover foto -->
+    <button class="btn btn-ghost" id="resetBtn" style="display:none"
+            aria-label="Remover foto atual">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
+      </svg>
+      <span>Remover foto</span>
+    </button>
+
   </div>
 </div>
 
-<div class="toast" id="toast"></div>
+<!-- ============================================================
+     TOAST (notificações)
+     ============================================================ -->
+<div class="toast" id="toast" role="alert" aria-live="assertive"></div>
 
-<!-- ============= SCRIPTS ============= -->
-<!-- 1. Bibliotecas IA (via CDN, módulos ES) -->
+<!-- ============================================================
+     MÓDULO DE IA (carregado como ES module)
+     Importa MediaPipe Tasks Vision do CDN oficial
+     ============================================================ -->
 <script type="module" src="js/ai.js"></script>
 
-<!-- 2. Módulos da aplicação (ordem importa) -->
+<!-- ============================================================
+     MÓDULOS DA APLICAÇÃO (ordem importa!)
+     1. utils.js      → helpers globais
+     2. toast.js      → notificações
+     3. frames.js     → gerenciamento das molduras
+     4. editor.js     → renderização do canvas
+     5. gestures.js   → toque/mouse/zoom
+     6. camera.js     → captura ao vivo
+     7. share.js      → salvar/compartilhar
+     8. generator.js  → IA de geração de imagem
+     9. app.js        → orquestrador (DEVE SER O ÚLTIMO)
+     ============================================================ -->
 <script src="js/utils.js"></script>
 <script src="js/toast.js"></script>
 <script src="js/frames.js"></script>
@@ -121,6 +240,7 @@
 <script src="js/gestures.js"></script>
 <script src="js/camera.js"></script>
 <script src="js/share.js"></script>
+<script src="js/generator.js"></script>
 <script src="js/app.js"></script>
 
 </body>
