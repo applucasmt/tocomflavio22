@@ -9,7 +9,6 @@ import {
   FilesetResolver
 } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs';
 
-/* ---------- Loader ---------- */
 function setLoader(active, text, pct) {
   const el = document.getElementById('loader');
   const txt = document.getElementById('loaderText');
@@ -19,13 +18,11 @@ function setLoader(active, text, pct) {
   if (bar) bar.style.width = (pct === null || pct === undefined ? 0 : pct) + '%';
 }
 
-/* ---------- Estado ---------- */
 let segmenter = null;
 let faceDetector = null;
 let segmenterReady = false;
 let detectorReady = false;
 
-/* ---------- Init Segmenter ---------- */
 async function initSegmenter() {
   if (segmenterReady) return segmenter;
   try {
@@ -55,7 +52,6 @@ async function initSegmenter() {
   }
 }
 
-/* ---------- Init FaceDetector ---------- */
 async function initFaceDetector() {
   if (detectorReady) return faceDetector;
   try {
@@ -80,7 +76,6 @@ async function initFaceDetector() {
   }
 }
 
-/* ---------- Remoção de fundo ---------- */
 async function removeBg() {
   const editor = window.Editor;
   if (!editor.hasImage()) return;
@@ -95,10 +90,8 @@ async function removeBg() {
     }
 
     const img = editor.image;
-    const MAX = 1024;
-    const scale = Math.min(1, MAX / Math.max(img.width, img.height));
-    const w = Math.round(img.width * scale);
-    const h = Math.round(img.height * scale);
+    const w = img.width;
+    const h = img.height;
 
     const off = document.createElement('canvas');
     off.width = w;
@@ -119,20 +112,28 @@ async function removeBg() {
 
     const mask = masks[0];
     const maskData = mask.getAsFloat32Array();
+    const maskW = mask.width;
+    const maskH = mask.height;
 
-    const out = document.createElement('canvas');
-    out.width = w;
-    out.height = h;
-    const octx2 = out.getContext('2d');
-    octx2.drawImage(off, 0, 0);
-    const imageData = octx2.getImageData(0, 0, w, h);
+    const imageData = octx.getImageData(0, 0, w, h);
     const data = imageData.data;
 
-    for (let i = 0; i < maskData.length; i++) {
-      const alpha = Math.max(0, Math.min(1, maskData[i]));
-      data[i * 4 + 3] = Math.round(data[i * 4 + 3] * alpha);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const mx = Math.floor((x / w) * maskW);
+        const my = Math.floor((y / h) * maskH);
+        const mi = my * maskW + mx;
+
+        let alpha = maskData[mi] || 0;
+        alpha = Math.max(0, Math.min(1, alpha));
+        alpha = alpha * alpha * (3 - 2 * alpha); // smoothstep
+
+        const i = (y * w + x) * 4;
+        data[i + 3] = Math.round(data[i + 3] * alpha);
+      }
     }
-    octx2.putImageData(imageData, 0, 0);
+
+    octx.putImageData(imageData, 0, 0);
 
     setLoader(true, 'Finalizando...', 90);
 
@@ -146,7 +147,7 @@ async function removeBg() {
       setLoader(false);
       if (window.Toast) Toast.error('Erro ao aplicar recorte');
     };
-    newImg.src = out.toDataURL('image/png');
+    newImg.src = off.toDataURL('image/png');
 
   } catch (err) {
     console.error(err);
@@ -155,7 +156,6 @@ async function removeBg() {
   }
 }
 
-/* ---------- Auto-enquadramento facial ---------- */
 async function autoFrameFace() {
   const editor = window.Editor;
   if (!editor.hasImage()) return;
@@ -172,7 +172,10 @@ async function autoFrameFace() {
     tmp.getContext('2d').drawImage(img, 0, 0, tmp.width, tmp.height);
 
     const result = detector.detect(tmp);
-    if (!result.detections || result.detections.length === 0) return;
+    if (!result.detections || result.detections.length === 0) {
+      console.log('[AI] Nenhum rosto detectado');
+      return;
+    }
 
     const faces = result.detections.map(function(d) { return d.boundingBox; });
     faces.sort(function(a, b) { return (b.width * b.height) - (a.width * a.height); });
@@ -210,7 +213,6 @@ async function autoFrameFace() {
   }
 }
 
-/* ---------- API pública ---------- */
 window.AI = {
   initFaceDetector: initFaceDetector,
   initSegmenter: initSegmenter,
@@ -222,7 +224,6 @@ window.AI = {
   }
 };
 
-/* Pré-carrega detector facial em background */
 setTimeout(function() {
   initFaceDetector().catch(function() {});
 }, 1500);
